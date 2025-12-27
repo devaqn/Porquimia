@@ -1,0 +1,31 @@
+## --- FILE: .gitignore ---
+```
+# Dependencies
+node_modules/
+package-lock.json
+
+# Environment
+.env
+
+# Database
+database/
+*.db
+*.db-shm
+*.db-wal
+
+# WhatsApp session
+auth_info/
+*.json
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
