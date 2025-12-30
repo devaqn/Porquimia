@@ -35,6 +35,16 @@ class NLPProcessor {
       getReminders: /^\/(?:lembretes?|lembrar|avisos?)/i,
       getDuePayments: /^\/(?:vencidas?|atrasadas?|pendentes?)/i,
       
+      // 🆕 Zeragem - COM E SEM ACENTO
+      resetBalance: /^\/(?:zerar|resetar|limpar)\s+saldo\s*$/i,
+      resetSavings: /^\/(?:zerar|resetar|limpar)\s+poupan[cç]a\s*$/i,
+      resetEmergency: /^\/(?:zerar|resetar|limpar)\s+(?:reserva|reserva\s+emerg[eê]ncia|reserva\s+emergencia)\s*$/i,
+      resetInstallments: /^\/(?:zerar|resetar|limpar|apagar)\s+(?:parcelas?|parcelamentos?)\s*$/i,
+      resetEverything: /^\/(?:zerar|resetar|limpar)\s+(?:tudo|sistema)\s*$/i,
+      
+      // Confirmação de zeragem
+      confirmReset: /^SIM,?\s*ZERAR\s+TUDO\s*$/i,
+      
       // Relatórios - COM E SEM ACENTO - MÚLTIPLAS VARIAÇÕES
       reportDaily: /^\/relat[oó]rio\s+(?:hoje|di[aá]rio|diario|day|daily)/i,
       reportWeekly: /^\/relat[oó]rio\s+(?:semana|semanal|week|weekly)/i,

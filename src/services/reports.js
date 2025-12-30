@@ -390,6 +390,14 @@ class ReportGenerator {
     help += '• `/relatorio semanal` - 7 dias\n';
     help += '• `/relatorio mensal` - Mês atual\n\n';
     
+    help += '☢️ *ZERAGEM (IRREVERSÍVEL)*\n';
+    help += '• `/zerar saldo` - Zerar saldo principal\n';
+    help += '• `/zerar poupanca` - Zerar poupança\n';
+    help += '• `/zerar reserva` - Zerar reserva emergência\n';
+    help += '• `/zerar parcelas` - Zerar parcelamentos\n';
+    help += '• `/zerar tudo` - Zerar TUDO ⚠️\n';
+    help += '_⚠️ Requer confirmação_\n\n';
+    
     help += '🏷️ *CATEGORIAS AUTOMÁTICAS*\n';
     help += '🍔 Alimentação • 🚗 Transporte\n';
     help += '🛒 Mercado • 🎮 Lazer\n';
@@ -638,6 +646,93 @@ class ReportGenerator {
     msg += '💰 *Valor:* ' + this.formatMoney(payment.amount) + '\n';
     msg += '📅 *Vencimento:* ' + this.formatDateShort(payment.due_date) + '\n\n';
     msg += '💡 Use `/pagar ' + payment.description + '` para pagar';
+    
+    return msg;
+  }
+
+  // ============ 🆕 CONFIRMAÇÕES DE ZERAGEM ============
+
+  generateResetConfirmation(type, timestamp) {
+    const date = this.formatDate(timestamp || new Date());
+    let msg = '✅ *OPERAÇÃO CONCLUÍDA*\n\n';
+    
+    switch(type) {
+      case 'balance':
+        msg += '💰 *Saldo principal zerado*\n';
+        break;
+      case 'savings':
+        msg += '🐷 *Poupança zerada*\n';
+        break;
+      case 'emergency':
+        msg += '🚨 *Reserva de emergência zerada*\n';
+        break;
+      case 'installments':
+        msg += '📦 *Parcelamentos zerados*\n';
+        break;
+      case 'everything':
+        msg += '☢️ *SISTEMA TOTALMENTE ZERADO*\n';
+        msg += '\nTodos os dados foram removidos:\n';
+        msg += '• Saldo principal\n';
+        msg += '• Poupança\n';
+        msg += '• Reserva de emergência\n';
+        msg += '• Parcelamentos\n';
+        msg += '• Histórico de gastos\n\n';
+        break;
+    }
+    
+    msg += '🕒 *Data/Hora:* ' + date + '\n\n';
+    
+    if (type === 'everything') {
+      msg += '💡 Use `/saldo 1000` para redefinir seu saldo';
+    } else {
+      msg += '⚠️ *Esta ação é irreversível*';
+    }
+    
+    return msg;
+  }
+
+  generateResetWarning(type) {
+    let msg = '⚠️ *ATENÇÃO - OPERAÇÃO IRREVERSÍVEL*\n\n';
+    
+    switch(type) {
+      case 'balance':
+        msg += 'Você está prestes a *zerar seu saldo principal*.\n\n';
+        msg += 'Isso irá:\n';
+        msg += '• Resetar saldo atual para R$ 0,00\n';
+        msg += '• Resetar saldo inicial para R$ 0,00\n';
+        break;
+      case 'savings':
+        msg += 'Você está prestes a *zerar sua poupança*.\n\n';
+        msg += 'Todo o dinheiro guardado será removido.\n';
+        break;
+      case 'emergency':
+        msg += 'Você está prestes a *zerar sua reserva de emergência*.\n\n';
+        msg += 'Todo o valor reservado será removido.\n';
+        break;
+      case 'installments':
+        msg += 'Você está prestes a *zerar todos os parcelamentos*.\n\n';
+        msg += 'Isso irá:\n';
+        msg += '• Remover todas as compras parceladas\n';
+        msg += '• Remover histórico de parcelas pagas\n';
+        msg += '• Remover parcelas pendentes\n';
+        break;
+      case 'everything':
+        msg += '☢️ *VOCÊ ESTÁ PRESTES A ZERAR TODO O SISTEMA!*\n\n';
+        msg += '⚠️ Isso irá remover PERMANENTEMENTE:\n\n';
+        msg += '• Saldo principal e inicial\n';
+        msg += '• Poupança completa\n';
+        msg += '• Reserva de emergência\n';
+        msg += '• Todos os parcelamentos\n';
+        msg += '• Todo o histórico de gastos\n\n';
+        msg += '❌ *ESTA AÇÃO NÃO PODE SER DESFEITA!*\n\n';
+        msg += 'Para confirmar, responda:\n\n';
+        msg += '*SIM, ZERAR TUDO*\n\n';
+        msg += 'Qualquer outra resposta cancelará.';
+        return msg;
+    }
+    
+    msg += '\n⚠️ *Esta ação NÃO pode ser desfeita!*\n\n';
+    msg += 'Para confirmar, use o comando novamente.';
     
     return msg;
   }

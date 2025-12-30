@@ -1,5 +1,6 @@
 const NLPProcessor = require('../services/nlp');
 const ReportGenerator = require('../services/reports');
+const ErrorMessages = require('../utils/errorMessages');
 
 class MessageHandler {
   constructor(dao, whatsappService) {
@@ -8,6 +9,7 @@ class MessageHandler {
     this.nlp = new NLPProcessor();
     this.reports = new ReportGenerator(dao);
     this.recentlyProcessed = {};
+    this.pendingResets = {}; // Para confirmações de zeragem
   }
 
   async process(message) {
@@ -91,7 +93,7 @@ class MessageHandler {
           'Use `/ajuda` para ver todos os comandos.';
         console.log('💰 ' + user.name + ': saldo inicial ' + command.amount);
       } else {
-        response = '❌ Valor inválido!\n\nUse: `/saldo 1000`';
+        response = ErrorMessages.INVALID_VALUE();
       }
     }
     
@@ -123,10 +125,10 @@ class MessageHandler {
           
           console.log('💰 ' + user.name + ': adicionou ' + command.amount);
         } else {
-          response = '❌ Erro ao adicionar saldo. Tente novamente.';
+          response = ErrorMessages.OPERATION_NOT_ALLOWED();
         }
       } else {
-        response = '❌ Valor inválido!\n\nUse: `/adicionar 500`';
+        response = ErrorMessages.INVALID_VALUE();
       }
     }
     
@@ -154,10 +156,10 @@ class MessageHandler {
           response = this.reports.generateSavingsConfirmation('deposit', command.amount, updatedUser);
           console.log('🐷 ' + user.name + ': guardou ' + command.amount);
         } else {
-          response = '❌ Saldo insuficiente!\n\nVocê tem: ' + this.reports.formatMoney(user.current_balance);
+          response = ErrorMessages.INSUFFICIENT_BALANCE('Saldo');
         }
       } else {
-        response = '❌ Valor inválido!\n\nUse: `/guardar 100`';
+        response = ErrorMessages.INVALID_VALUE();
       }
     }
     
@@ -170,10 +172,10 @@ class MessageHandler {
           response = this.reports.generateSavingsConfirmation('withdraw', command.amount, updatedUser);
           console.log('🐷 ' + user.name + ': retirou ' + command.amount);
         } else {
-          response = '❌ Poupança insuficiente!\n\nVocê tem: ' + this.reports.formatMoney(user.savings_balance);
+          response = ErrorMessages.INSUFFICIENT_BALANCE('Poupança');
         }
       } else {
-        response = '❌ Valor inválido!\n\nUse: `/retirar 50`';
+        response = ErrorMessages.INVALID_VALUE();
       }
     }
     
@@ -196,10 +198,10 @@ class MessageHandler {
           response = this.reports.generateEmergencyConfirmation('deposit', command.amount, updatedUser);
           console.log('🚨 ' + user.name + ': reservou ' + command.amount);
         } else {
-          response = '❌ Saldo insuficiente!\n\nVocê tem: ' + this.reports.formatMoney(user.current_balance);
+          response = ErrorMessages.INSUFFICIENT_BALANCE('Saldo');
         }
       } else {
-        response = '❌ Valor inválido!\n\nUse: `/reservar 200`';
+        response = ErrorMessages.INVALID_VALUE();
       }
     }
     
@@ -212,10 +214,10 @@ class MessageHandler {
           response = this.reports.generateEmergencyConfirmation('withdraw', command.amount, updatedUser);
           console.log('🚨 ' + user.name + ': usou reserva ' + command.amount);
         } else {
-          response = '❌ Reserva insuficiente!\n\nVocê tem: ' + this.reports.formatMoney(user.emergency_fund);
+          response = ErrorMessages.INSUFFICIENT_BALANCE('Reserva');
         }
       } else {
-        response = '❌ Valor inválido!\n\nUse: `/usar 100`';
+        response = ErrorMessages.INVALID_VALUE();
       }
     }
     
@@ -241,12 +243,12 @@ class MessageHandler {
     
     else if (command.command === 'payInstallment') {
       if (!command.description) {
-        response = '❌ Especifique qual parcela pagar!\n\nUse: `/pagar celular`';
+        response = ErrorMessages.INVALID_VALUE();
       } else {
         const installment = this.dao.findInstallmentByDescription(user.id, command.description);
         
         if (!installment) {
-          response = '❌ Parcelamento não encontrado!\n\nUse `/parcelamentos` para ver suas compras.';
+          response = ErrorMessages.NO_DATA_FOUND('parcelamento com este nome');
         } else {
           const nextPayment = this.dao.getNextPendingPayment(installment.id);
           
@@ -263,7 +265,7 @@ class MessageHandler {
               response = this.reports.generatePaymentConfirmation(installment, updatedPayment, updatedUser);
               console.log('💳 ' + user.name + ': pagou parcela ' + nextPayment.installment_number + '/' + installment.total_installments);
             } else {
-              response = '❌ Saldo insuficiente!\n\nParcela: ' + this.reports.formatMoney(nextPayment.amount) + '\nVocê tem: ' + this.reports.formatMoney(user.current_balance);
+              response = ErrorMessages.INSUFFICIENT_BALANCE('Saldo');
             }
           }
         }
@@ -274,6 +276,89 @@ class MessageHandler {
     
     else if (command.command === 'getReminders' || command.command === 'getDuePayments') {
       response = this.reports.generateRemindersList(user.id);
+    }
+    
+    // ============ 🆕 ZERAGEM ============
+    
+    else if (command.command === 'resetBalance') {
+      const success = this.dao.resetBalance(user.id);
+      if (success) {
+        response = this.reports.generateResetConfirmation('balance', new Date());
+        console.log('☢️ ' + user.name + ': zerou saldo principal');
+      } else {
+        response = ErrorMessages.OPERATION_NOT_ALLOWED();
+      }
+    }
+    
+    else if (command.command === 'resetSavings') {
+      const success = this.dao.resetSavings(user.id);
+      if (success) {
+        response = this.reports.generateResetConfirmation('savings', new Date());
+        console.log('☢️ ' + user.name + ': zerou poupança');
+      } else {
+        response = ErrorMessages.NO_DATA_FOUND('poupança');
+      }
+    }
+    
+    else if (command.command === 'resetEmergency') {
+      const success = this.dao.resetEmergencyFund(user.id);
+      if (success) {
+        response = this.reports.generateResetConfirmation('emergency', new Date());
+        console.log('☢️ ' + user.name + ': zerou reserva de emergência');
+      } else {
+        response = ErrorMessages.NO_DATA_FOUND('reserva de emergência');
+      }
+    }
+    
+    else if (command.command === 'resetInstallments') {
+      const success = this.dao.resetInstallments(user.id);
+      if (success) {
+        response = this.reports.generateResetConfirmation('installments', new Date());
+        console.log('☢️ ' + user.name + ': zerou parcelamentos');
+      } else {
+        response = ErrorMessages.NO_DATA_FOUND('parcelamentos');
+      }
+    }
+    
+    else if (command.command === 'resetEverything') {
+      // Verificar se já há uma solicitação pendente
+      if (this.pendingResets[user.id] && this.pendingResets[user.id].type === 'everything') {
+        // Segunda vez - executar
+        delete this.pendingResets[user.id];
+        const success = this.dao.resetEverything(user.id);
+        if (success) {
+          response = this.reports.generateResetConfirmation('everything', new Date());
+          console.log('☢️☢️☢️ ' + user.name + ': ZEROU TODO O SISTEMA');
+        } else {
+          response = ErrorMessages.OPERATION_NOT_ALLOWED();
+        }
+      } else {
+        // Primeira vez - pedir confirmação
+        this.pendingResets[user.id] = { type: 'everything', timestamp: Date.now() };
+        response = this.reports.generateResetWarning('everything');
+        
+        // Limpar após 2 minutos
+        const self = this;
+        setTimeout(function() {
+          delete self.pendingResets[user.id];
+        }, 120000);
+      }
+    }
+    
+    else if (command.command === 'confirmReset') {
+      // Confirmação "SIM, ZERAR TUDO"
+      if (this.pendingResets[user.id] && this.pendingResets[user.id].type === 'everything') {
+        delete this.pendingResets[user.id];
+        const success = this.dao.resetEverything(user.id);
+        if (success) {
+          response = this.reports.generateResetConfirmation('everything', new Date());
+          console.log('☢️☢️☢️ ' + user.name + ': ZEROU TODO O SISTEMA (confirmado)');
+        } else {
+          response = ErrorMessages.OPERATION_NOT_ALLOWED();
+        }
+      } else {
+        response = ErrorMessages.CONFIRMATION_FAILED();
+      }
     }
     
     // ============ OUTROS ============
@@ -287,7 +372,7 @@ class MessageHandler {
     }
     
     else {
-      response = '❓ Comando não reconhecido.\n\nUse `/ajuda` para ver os comandos disponíveis.';
+      response = ErrorMessages.COMMAND_NOT_FOUND();
     }
 
     if (response) {
@@ -300,12 +385,12 @@ class MessageHandler {
     const chatId = info.chatId;
 
     if (!this.nlp.isValidAmount(expense.amount)) {
-      await this.whatsapp.replyMessage(message, '❌ Valor inválido!\n\nDeve estar entre R$ 0,01 e R$ 1.000.000,00');
+      await this.whatsapp.replyMessage(message, ErrorMessages.INVALID_VALUE());
       return;
     }
 
     if (user.initial_balance === 0) {
-      await this.whatsapp.replyMessage(message, '⚠️ Defina seu saldo inicial primeiro!\n\nUse: `/saldo 1000`');
+      await this.whatsapp.replyMessage(message, ErrorMessages.INITIAL_BALANCE_REQUIRED());
       return;
     }
 
@@ -361,12 +446,12 @@ class MessageHandler {
     const chatId = info.chatId;
 
     if (!this.nlp.isValidAmount(installment.totalAmount)) {
-      await this.whatsapp.replyMessage(message, '❌ Valor inválido!');
+      await this.whatsapp.replyMessage(message, ErrorMessages.INVALID_VALUE());
       return;
     }
 
     if (user.initial_balance === 0) {
-      await this.whatsapp.replyMessage(message, '⚠️ Defina seu saldo inicial primeiro!\n\nUse: `/saldo 1000`');
+      await this.whatsapp.replyMessage(message, ErrorMessages.INITIAL_BALANCE_REQUIRED());
       return;
     }
 
