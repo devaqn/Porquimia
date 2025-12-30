@@ -1,7 +1,7 @@
 const NLPProcessor = require('../services/nlp');
 const ReportGenerator = require('../services/reports');
 const ErrorMessages = require('../utils/errorMessages');
-
+//TA COM ERRO AQUI 
 class MessageHandler {
   constructor(dao, whatsappService) {
     this.dao = dao;
