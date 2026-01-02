@@ -832,3 +832,4 @@ class ReportGenerator {
 
 module.exports = ReportGenerator;
         report += `
+        ///com problemas, falta o resto do codigo, to sem cabeça pra codar
