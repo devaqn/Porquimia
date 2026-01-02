@@ -3,29 +3,40 @@ class ReportGenerator {
     this.dao = dao;
   }
 
-  // ============ 🆕 FUNÇÃO CENTRAL DE DATA/HORA (ÚNICA E CONFIÁVEL) ============
+  // ============ 🔧 CORREÇÃO 1: TIMEZONE BRASIL (America/Sao_Paulo) ============
   
   /**
-   * FUNÇÃO CENTRAL - SEMPRE retorna o momento ATUAL no fuso horário do Brasil
-   * Esta é a ÚNICA função que deve ser usada para timestamps
+   * FUNÇÃO CENTRAL - Retorna timestamp no fuso horário de Brasília (UTC-3)
+   * Usa process.env.TZ e Intl para garantir precisão
    */
   getCurrentBrazilTimestamp() {
-    const now = new Date(); // Momento ATUAL
-    const brazilOffset = -3 * 60; // UTC-3 (Brasília)
-    const localOffset = now.getTimezoneOffset();
-    const diff = brazilOffset - localOffset;
-    const brazilNow = new Date(now.getTime() + diff * 60000);
+    // Configurar timezone do Node.js
+    process.env.TZ = 'America/Sao_Paulo';
     
-    const day = String(brazilNow.getDate()).padStart(2, '0');
-    const month = String(brazilNow.getMonth() + 1).padStart(2, '0');
-    const year = brazilNow.getFullYear();
-    const hour = String(brazilNow.getHours()).padStart(2, '0');
-    const minute = String(brazilNow.getMinutes()).padStart(2, '0');
+    const now = new Date();
+    
+    // Formatar usando Intl para garantir timezone correto
+    const formatter = new Intl.DateTimeFormat('pt-BR', {
+      timeZone: 'America/Sao_Paulo',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    });
+    
+    const parts = formatter.formatToParts(now);
+    const day = parts.find(p => p.type === 'day').value;
+    const month = parts.find(p => p.type === 'month').value;
+    const year = parts.find(p => p.type === 'year').value;
+    const hour = parts.find(p => p.type === 'hour').value;
+    const minute = parts.find(p => p.type === 'minute').value;
     
     return {
       formatted: `${day}/${month}/${year} às ${hour}:${minute}`,
-      iso: brazilNow.toISOString(),
-      date: brazilNow
+      iso: now.toISOString(),
+      date: now
     };
   }
 
@@ -33,11 +44,30 @@ class ReportGenerator {
    * Converte uma data armazenada para o fuso horário do Brasil
    */
   getBrazilDate(date) {
+    process.env.TZ = 'America/Sao_Paulo';
     const d = date ? new Date(date) : new Date();
-    const brazilOffset = -3 * 60;
-    const localOffset = d.getTimezoneOffset();
-    const diff = brazilOffset - localOffset;
-    return new Date(d.getTime() + diff * 60000);
+    
+    // Usar Intl para converter corretamente
+    const formatter = new Intl.DateTimeFormat('pt-BR', {
+      timeZone: 'America/Sao_Paulo',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    });
+    
+    const parts = formatter.formatToParts(d);
+    const year = parseInt(parts.find(p => p.type === 'year').value);
+    const month = parseInt(parts.find(p => p.type === 'month').value) - 1;
+    const day = parseInt(parts.find(p => p.type === 'day').value);
+    const hour = parseInt(parts.find(p => p.type === 'hour').value);
+    const minute = parseInt(parts.find(p => p.type === 'minute').value);
+    const second = parseInt(parts.find(p => p.type === 'second').value);
+    
+    return new Date(year, month, day, hour, minute, second);
   }
 
   formatMoney(value) {
@@ -108,14 +138,14 @@ class ReportGenerator {
     return report;
   }
 
-  // ============ RELATÓRIO DIÁRIO (CORRIGIDO) ============
+  // ============ RELATÓRIO DIÁRIO (JÁ ESTAVA CORRETO) ============
   
   generateDailyReport(userId) {
     const timestamp = this.getCurrentBrazilTimestamp();
     const user = this.dao.getUserById(userId);
     
     if (!user) {
-      return '❌ *Erro ao gerar relatório*\n\n📌 Usuário não encontrado\n🕒 ' + timestamp.formatted;
+      return '❌ *Erro ao gerar relatório*\n\n📌 Usuário não encontrado\n🕑 ' + timestamp.formatted;
     }
     
     const today = this.getBrazilDate(new Date());
@@ -143,7 +173,7 @@ class ReportGenerator {
     
     report += `👤 *Usuário:* ${user.name}\n`;
     report += `📆 *Data:* ${this.formatDateShort(today)}\n`;
-    report += `🕒 *Gerado em:* ${timestamp.formatted}\n\n`;
+    report += `🕑 *Gerado em:* ${timestamp.formatted}\n\n`;
     
     report += '💸 *MOVIMENTAÇÃO HOJE*\n';
     report += `   Gastos: ${this.formatMoney(totalExpenses)}\n`;
@@ -189,14 +219,14 @@ class ReportGenerator {
     return report;
   }
 
-  // ============ RELATÓRIO SEMANAL (CORRIGIDO) ============
+  // ============ RELATÓRIO SEMANAL ============
   
   generateWeeklyReport(userId) {
     const timestamp = this.getCurrentBrazilTimestamp();
     const user = this.dao.getUserById(userId);
     
     if (!user) {
-      return '❌ *Erro ao gerar relatório*\n\n📌 Usuário não encontrado\n🕒 ' + timestamp.formatted;
+      return '❌ *Erro ao gerar relatório*\n\n📌 Usuário não encontrado\n🕑 ' + timestamp.formatted;
     }
     
     const today = this.getBrazilDate(new Date());
@@ -224,7 +254,7 @@ class ReportGenerator {
     
     report += `👤 *Usuário:* ${user.name}\n`;
     report += `📆 *Período:* ${this.formatDateShort(weekAgo)} até ${this.formatDateShort(today)}\n`;
-    report += `🕒 *Gerado em:* ${timestamp.formatted}\n\n`;
+    report += `🕑 *Gerado em:* ${timestamp.formatted}\n\n`;
     
     report += '💸 *RESUMO DA SEMANA*\n';
     report += `   Total gasto: ${this.formatMoney(total)}\n`;
@@ -268,14 +298,14 @@ class ReportGenerator {
     return report;
   }
 
-  // ============ RELATÓRIO MENSAL (CORRIGIDO) ============
+  // ============ RELATÓRIO MENSAL ============
   
   generateMonthlyReport(userId) {
     const timestamp = this.getCurrentBrazilTimestamp();
     const user = this.dao.getUserById(userId);
     
     if (!user) {
-      return '❌ *Erro ao gerar relatório*\n\n📌 Usuário não encontrado\n🕒 ' + timestamp.formatted;
+      return '❌ *Erro ao gerar relatório*\n\n📌 Usuário não encontrado\n🕑 ' + timestamp.formatted;
     }
     
     const today = this.getBrazilDate(new Date());
@@ -310,7 +340,7 @@ class ReportGenerator {
     
     report += `👤 *Usuário:* ${user.name}\n`;
     report += `📆 *Mês:* ${monthName}\n`;
-    report += `🕒 *Gerado em:* ${timestamp.formatted}\n\n`;
+    report += `🕑 *Gerado em:* ${timestamp.formatted}\n\n`;
     
     report += '💸 *RESUMO DO MÊS*\n';
     report += `   Total gasto: ${this.formatMoney(total)}\n`;
@@ -362,7 +392,7 @@ class ReportGenerator {
     return report;
   }
 
-  // ============ CONFIRMAÇÃO DE GASTO (CORRIGIDO) ============
+  // ============ CONFIRMAÇÃO DE GASTO ============
   
   generateExpenseConfirmation(expense, user, category) {
     const timestamp = this.getCurrentBrazilTimestamp();
@@ -372,7 +402,7 @@ class ReportGenerator {
     report += `${category.emoji} *Categoria:* ${category.name}\n`;
     report += `💵 *Valor:* ${this.formatMoney(expense.amount)}\n`;
     report += `📝 *Descrição:* ${expense.description}\n`;
-    report += `🕒 *Registrado em:* ${timestamp.formatted}\n\n`;
+    report += `🕑 *Registrado em:* ${timestamp.formatted}\n\n`;
     
     report += '💰 *Saldo Atualizado*\n';
     report += `   Principal: *${this.formatMoney(user.current_balance)}*\n`;
@@ -390,14 +420,14 @@ class ReportGenerator {
     return report;
   }
 
-  // ============ TRANSAÇÕES DE POUPANÇA (CORRIGIDO) ============
+  // ============ 🔧 CORREÇÃO 2: CONFIRMAÇÕES DE POUPANÇA E EMERGÊNCIA (JÁ CORRETAS) ============
   
   generateSavingsConfirmation(action, amount, user) {
     const timestamp = this.getCurrentBrazilTimestamp();
     let msg = action === 'deposit' ? '✅ *DINHEIRO GUARDADO*\n\n' : '✅ *DINHEIRO RETIRADO*\n\n';
     
     msg += `💵 *Valor:* ${this.formatMoney(amount)}\n`;
-    msg += `🕒 *Data/Hora:* ${timestamp.formatted}\n\n`;
+    msg += `🕑 *Data/Hora:* ${timestamp.formatted}\n\n`;
     
     msg += '💰 *SALDOS ATUALIZADOS*\n';
     msg += `   Principal: ${this.formatMoney(user.current_balance)}\n`;
@@ -413,14 +443,12 @@ class ReportGenerator {
     return msg;
   }
 
-  // ============ TRANSAÇÕES DE EMERGÊNCIA (CORRIGIDO) ============
-  
   generateEmergencyConfirmation(action, amount, user) {
     const timestamp = this.getCurrentBrazilTimestamp();
     let msg = action === 'deposit' ? '✅ *RESERVA CRIADA*\n\n' : '✅ *RESERVA UTILIZADA*\n\n';
     
     msg += `💵 *Valor:* ${this.formatMoney(amount)}\n`;
-    msg += `🕒 *Data/Hora:* ${timestamp.formatted}\n\n`;
+    msg += `🕑 *Data/Hora:* ${timestamp.formatted}\n\n`;
     
     msg += '💰 *SALDOS ATUALIZADOS*\n';
     msg += `   Principal: ${this.formatMoney(user.current_balance)}\n`;
@@ -444,7 +472,7 @@ class ReportGenerator {
     const installments = this.dao.getInstallmentsByUser(userId);
     
     if (installments.length === 0) {
-      return '📦 *PARCELAMENTOS*\n\nVocê não tem compras parceladas.\n\nUse: "comprei celular por 1200 em 12x"\n\n🕒 ' + timestamp.formatted;
+      return '📦 *PARCELAMENTOS*\n\nVocê não tem compras parceladas.\n\nUse: "comprei celular por 1200 em 12x"\n\n🕑 ' + timestamp.formatted;
     }
     
     let report = '╔═══════════════════════════════════════╗\n';
@@ -467,7 +495,7 @@ class ReportGenerator {
     }
     
     report += '💡 Use `/pagar celular` para pagar a próxima parcela\n\n';
-    report += '🕒 ' + timestamp.formatted;
+    report += '🕑 ' + timestamp.formatted;
     
     return report;
   }
@@ -480,7 +508,7 @@ class ReportGenerator {
     report += `${category.emoji} *Produto:* ${installment.description}\n`;
     report += `💰 *Valor Total:* ${this.formatMoney(installment.total_amount)}\n`;
     report += `📊 *Parcelas:* ${installment.total_installments}x de ${this.formatMoney(installment.installment_amount)}\n`;
-    report += `🕒 *Registrado em:* ${timestamp.formatted}\n\n`;
+    report += `🕑 *Registrado em:* ${timestamp.formatted}\n\n`;
     
     report += '💡 *Como pagar parcelas:*\n';
     report += `   \`/pagar ${installment.description}\`\n`;
@@ -497,7 +525,7 @@ class ReportGenerator {
     report += `📦 *Produto:* ${installment.description}\n`;
     report += `📊 *Parcela:* ${payment.installment_number}/${installment.total_installments}\n`;
     report += `💵 *Valor:* ${this.formatMoney(payment.amount)}\n`;
-    report += `🕒 *Pago em:* ${timestamp.formatted}\n\n`;
+    report += `🕑 *Pago em:* ${timestamp.formatted}\n\n`;
     
     const paid = payment.installment_number;
     const remaining = installment.total_installments - paid;
@@ -527,7 +555,7 @@ class ReportGenerator {
     const pending = this.dao.getPendingPaymentsByUser(userId);
     
     if (pending.length === 0) {
-      return '✅ *PARCELAS EM DIA*\n\nVocê não tem parcelas pendentes!\n\n🕒 ' + timestamp.formatted;
+      return '✅ *PARCELAS EM DIA*\n\nVocê não tem parcelas pendentes!\n\n🕑 ' + timestamp.formatted;
     }
     
     const today = this.getBrazilDateOnly(new Date());
@@ -581,7 +609,7 @@ class ReportGenerator {
     }
     
     report += '💡 Use `/pagar [nome]` para pagar uma parcela\n\n';
-    report += '🕒 ' + timestamp.formatted;
+    report += '🕑 ' + timestamp.formatted;
     
     return report;
   }
@@ -607,12 +635,12 @@ class ReportGenerator {
     msg += `💰 *Valor:* ${this.formatMoney(payment.amount)}\n`;
     msg += `📅 *Vencimento:* ${this.formatDateShort(payment.due_date)}\n\n`;
     msg += `💡 Use \`/pagar ${payment.description}\` para pagar\n\n`;
-    msg += '🕒 ' + timestamp.formatted;
+    msg += '🕑 ' + timestamp.formatted;
     
     return msg;
   }
 
-  // ============ CONFIRMAÇÕES DE ZERAGEM (CORRIGIDO) ============
+  // ============ CONFIRMAÇÕES DE ZERAGEM ============
 
   generateResetConfirmation(type) {
     const timestamp = this.getCurrentBrazilTimestamp();
@@ -642,7 +670,7 @@ class ReportGenerator {
         break;
     }
     
-    msg += `🕒 *Data/Hora:* ${timestamp.formatted}\n\n`;
+    msg += `🕑 *Data/Hora:* ${timestamp.formatted}\n\n`;
     
     if (type === 'everything') {
       msg += '💡 Use `/saldo 1000` para redefinir seu saldo';
@@ -691,14 +719,14 @@ class ReportGenerator {
         msg += 'Para confirmar, digite exatamente:\n\n';
         msg += '*confirmar zerar tudo*\n\n';
         msg += 'Qualquer outra resposta cancelará.\n\n';
-        msg += '🕒 ' + timestamp.formatted;
+        msg += '🕑 ' + timestamp.formatted;
         return msg;
     }
     
     msg += '\n⚠️ *Esta ação NÃO pode ser desfeita!*\n\n';
     msg += 'Para confirmar, use o comando novamente:\n';
     msg += `\`/zerar ${type === 'balance' ? 'saldo' : type === 'savings' ? 'poupanca' : type === 'emergency' ? 'reserva' : 'parcelas'}\`\n\n`;
-    msg += '🕒 ' + timestamp.formatted;
+    msg += '🕑 ' + timestamp.formatted;
     
     return msg;
   }
@@ -766,7 +794,7 @@ class ReportGenerator {
     help += '💡 O bot identifica categorias automaticamente!\n';
     help += 'Use `/start` para começar.\n\n';
     help += '✅ *TODOS os comandos retornam confirmação*\n';
-    help += '🕒 ' + timestamp.formatted;
+    help += '🕑 ' + timestamp.formatted;
     
     return help;
   }
@@ -796,10 +824,11 @@ class ReportGenerator {
     
     welcome += '═══════════════════════════════════════\n';
     welcome += 'Vamos começar a organizar suas finanças! 💪\n\n';
-    welcome += '🕒 ' + timestamp.formatted;
+    welcome += '🕑 ' + timestamp.formatted;
     
     return welcome;
   }
 }
 
 module.exports = ReportGenerator;
+        report += `
